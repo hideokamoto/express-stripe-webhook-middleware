@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import { NextFunction, Request, Response } from 'express';
 
-export type Logger = (message?: any, ...optionalParams: any[]) => void
+export type Logger = (message?: any, ...optionalParams: any[]) => void;
 export interface StripeWebhookMiddlewareBuilderOptions {
   logger?: Logger;
 }
@@ -15,37 +15,42 @@ export class StripeWebhookMiddlewareFactory {
   /**
    * Stripe SDK client
    */
-  private readonly stripe: Stripe
-
+  private readonly stripe: Stripe;
 
   /**
    * Logging function
    */
   private readonly log: Logger;
-  
 
-  constructor(endpointSecret: string, client: Stripe, options?: StripeWebhookMiddlewareBuilderOptions) {
-    this.endpointSecret = endpointSecret
-    this.stripe = client
-    this.log = options && options.logger ? options.logger : console.log
+  constructor(
+    endpointSecret: string,
+    client: Stripe,
+    options?: StripeWebhookMiddlewareBuilderOptions
+  ) {
+    this.endpointSecret = endpointSecret;
+    this.stripe = client;
+    this.log = options && options.logger ? options.logger : console.log;
   }
-  
 
   public create() {
-    const { endpointSecret, stripe, log } = this
+    const { endpointSecret, stripe, log } = this;
     return (req: Request, res: Response, next: NextFunction) => {
       var data = '';
       req.setEncoding('utf8');
       req.on('data', function(chunk) {
         data += chunk;
       });
-  
+
       req.on('end', function() {
         req.body = data;
         const payload = req.body;
         const sig = req.headers['stripe-signature'];
         try {
-          req.body = stripe.webhooks.constructEvent(payload, sig as string, endpointSecret);
+          req.body = stripe.webhooks.constructEvent(
+            payload,
+            sig as string,
+            endpointSecret
+          );
           next();
         } catch (err) {
           log(err);
@@ -55,5 +60,3 @@ export class StripeWebhookMiddlewareFactory {
     };
   }
 }
-
-

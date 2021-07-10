@@ -120,7 +120,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_API_KEY, {
 });
 
 const app = express();
-const webhookRouter = express.Router();
 const factory = new StripeWebhookMiddlewareFactory(process.env.STRIPE_WEBHOOK_SECRET_KEY, stripe)
 app.post('/webhook', factory.create());
 app.post('/webhook', async (request, response) => {
