@@ -29,9 +29,9 @@
     "singleQuote": true,
     "trailingComma": "es5"
   },
-  "name": "stripe-webhook-middleware",
+  "name": "express-stripe-webhook-middleware",
   "author": "Hidetaka Okamoto",
-  "module": "dist/stripe-webhook-middleware.esm.js",
+  "module": "dist/express-stripe-webhook-middleware.esm.js",
   "devDependencies": {
     "@types/express": "^4.17.13",
     "husky": "^7.0.1",
