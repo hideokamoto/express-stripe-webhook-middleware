@@ -12,6 +12,16 @@ export default [
         ecmaVersion: 'latest',
         sourceType: 'module',
       },
+      globals: {
+        console: 'readonly',
+        Buffer: 'readonly',
+        process: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        exports: 'writable',
+        module: 'writable',
+        require: 'readonly',
+      },
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
@@ -24,6 +34,7 @@ export default [
         'error',
         { argsIgnorePattern: '^_' },
       ],
+      'no-undef': 'off', // TypeScript handles this
     },
   },
   {
