@@ -1,224 +1,303 @@
 # Express Stripe Webhook Middleware
 
-You can easy to verify the Webhook request from Stripe.
+[![npm version](https://badge.fury.io/js/express-stripe-webhook-middleware.svg)](https://www.npmjs.com/package/express-stripe-webhook-middleware)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+A modern, type-safe Express middleware for verifying Stripe webhook signatures. Built with TypeScript and Vite.
 
-## Install
+## Features
+
+- ✅ **Type-safe**: Full TypeScript support with strict type checking
+- 🔒 **Secure**: Automatic signature verification using Stripe's SDK
+- 🎯 **Simple API**: Easy to use with Express applications
+- 🔧 **Flexible**: Custom error handlers and logging
+- ⚡ **Modern**: Built with Vite and latest dependencies
+- 🧪 **Well-tested**: Comprehensive test coverage with Vitest
+
+## Installation
 
 ```bash
-$ yarn add express-stripe-webhook-middleware
+npm install express-stripe-webhook-middleware stripe express
+# or
+yarn add express-stripe-webhook-middleware stripe express
+# or
+pnpm add express-stripe-webhook-middleware stripe express
 ```
 
-## Usage
+## Quick Start
+
+### TypeScript
+
+```typescript
+import Stripe from 'stripe';
+import express from 'express';
+import { createStripeWebhookMiddleware } from 'express-stripe-webhook-middleware';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const app = express();
+
+app.post(
+  '/webhook',
+  ...createStripeWebhookMiddleware(process.env.STRIPE_WEBHOOK_SECRET!, stripe),
+  (req, res) => {
+    const event = req.body as Stripe.Event;
+
+    // Handle the event
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        console.log('PaymentIntent was successful!');
+        break;
+      case 'payment_method.attached':
+        console.log('PaymentMethod was attached to a Customer!');
+        break;
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({ received: true });
+  }
+);
+
+app.listen(4242, () => console.log('Server running on port 4242'));
+```
+
+### JavaScript (CommonJS)
 
 ```javascript
 const Stripe = require('stripe');
 const express = require('express');
-const { StripeWebhookMiddlewareFactory } = require('express-stripe-webhook-middleware')
-require('dotenv').config()
+const { createStripeWebhookMiddleware } = require('express-stripe-webhook-middleware');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_API_KEY, {
-  apiVersion: '2020-08-27',
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const app = express();
 
-/**
- * Examples
- */
- const app = express();
- const webhookRouter = express.Router();
- const factory = new StripeWebhookMiddlewareFactory(process.env.STRIPE_WEBHOOK_SECRET_KEY, stripe)
- webhookRouter.use(
-   '/webhook',
-   factory.create()
- );
- 
- webhookRouter.post('/webhook', (request, response) => {
-   const payload = request.body;
-   console.log('=====');
-   console.log(payload);
-   response.status(200).send('Webhook done!');
- });
- 
- 
- app.post('/webhook', webhookRouter);
- app.get('/', async (req, res) => {
-   const data = stripe.customers.list();
-   res.status(200).send(JSON.stringify(data));
- });
- app.listen(4242, () => console.log('start'));
- 
+app.post(
+  '/webhook',
+  ...createStripeWebhookMiddleware(process.env.STRIPE_WEBHOOK_SECRET, stripe),
+  (req, res) => {
+    const event = req.body;
+    console.log('Received event:', event.type);
+    res.json({ received: true });
+  }
+);
+
+app.listen(4242);
 ```
 
-## Why?
+## Advanced Usage
 
-Stripe recommend to check the Webhook signatures from Stripe.
-https://stripe.com/docs/webhooks/signatures
+### Using the Factory Pattern
 
-Stripe show us these example code to verify the signatures.
+```typescript
+import { StripeWebhookMiddlewareFactory } from 'express-stripe-webhook-middleware';
+
+const factory = new StripeWebhookMiddlewareFactory(
+  process.env.STRIPE_WEBHOOK_SECRET!,
+  stripe
+);
+
+app.post('/webhook', ...factory.create(), (req, res) => {
+  const event = req.body as Stripe.Event;
+  // Handle event
+  res.json({ received: true });
+});
+```
+
+### Custom Error Handling
+
+```typescript
+const factory = new StripeWebhookMiddlewareFactory(
+  process.env.STRIPE_WEBHOOK_SECRET!,
+  stripe,
+  {
+    onError: (error, req, res) => {
+      console.error('Webhook error:', error.message);
+      res.status(400).json({
+        error: 'Webhook signature verification failed',
+        message: error.message
+      });
+    }
+  }
+);
+
+app.post('/webhook', ...factory.create(), (req, res) => {
+  res.json({ received: true });
+});
+```
+
+### Custom Logger
+
+```typescript
+import pino from 'pino';
+
+const logger = pino();
+
+const factory = new StripeWebhookMiddlewareFactory(
+  process.env.STRIPE_WEBHOOK_SECRET!,
+  stripe,
+  {
+    logger: (error) => logger.error({ error }, 'Webhook verification failed')
+  }
+);
+```
+
+## Why This Package?
+
+[Stripe recommends verifying webhook signatures](https://stripe.com/docs/webhooks/signatures) to ensure the requests actually come from Stripe.
+
+### Without This Package
+
+Following Stripe's official example, you need to manually set up body parsing and signature verification:
 
 ```javascript
-// Set your secret key. Remember to switch to your live secret key in production.
-// See your keys here: https://dashboard.stripe.com/apikeys
-const stripe = require('stripe')('sk_testXXXXXX');
-
-// If you are testing your webhook locally with the Stripe CLI you
-// can find the endpoint's secret by running `stripe listen`
-// Otherwise, find your endpoint's secret in your webhook settings in the Developer Dashboard
-const endpointSecret = 'whsec_...';
-
-// This example uses Express to receive webhooks
+const stripe = require('stripe')('sk_test_...');
+const bodyParser = require('body-parser');
 const app = require('express')();
 
-// Use body-parser to retrieve the raw body as a buffer
-const bodyParser = require('body-parser');
-
-// Match the raw body to content type application/json
-app.post('/webhook', bodyParser.raw({type: 'application/json'}), (request, response) => {
-  const sig = request.headers['stripe-signature'];
-
+app.post('/webhook', bodyParser.raw({type: 'application/json'}), (req, res) => {
+  const sig = req.headers['stripe-signature'];
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
-  }
-  catch (err) {
-    response.status(400).send(`Webhook Error: ${err.message}`);
+    event = stripe.webhooks.constructEvent(req.body, sig, 'whsec_...');
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   // Handle the event
   switch (event.type) {
     case 'payment_intent.succeeded':
-      const paymentIntent = event.data.object;
-      console.log('PaymentIntent was successful!');
+      console.log('PaymentIntent succeeded!');
       break;
-    case 'payment_method.attached':
-      const paymentMethod = event.data.object;
-      console.log('PaymentMethod was attached to a Customer!');
-      break;
-    // ... handle other event types
-    default:
-      console.log(`Unhandled event type ${event.type}`);
+    // ... more cases
   }
 
-  // Return a response to acknowledge receipt of the event
-  response.json({received: true});
+  res.json({ received: true });
 });
-
-app.listen(4242, () => console.log('Running on port 4242'));
 ```
 
-When using this package, we can re-write the code like this.
+### With This Package
 
-```javascript
-require('dotenv').config()
-const Stripe = require('stripe');
-const express = require('express');
-const { StripeWebhookMiddlewareFactory } = require('express-stripe-webhook-middleware')
+Much cleaner and type-safe:
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_API_KEY, {
-  apiVersion: '2020-08-27',
-});
+```typescript
+import { createStripeWebhookMiddleware } from 'express-stripe-webhook-middleware';
 
-const app = express();
-const factory = new StripeWebhookMiddlewareFactory(process.env.STRIPE_WEBHOOK_SECRET_KEY, stripe)
-app.post('/webhook', factory.create());
-app.post('/webhook', async (request, response) => {
-     const event = request.body
-    // Handle the event
+app.post(
+  '/webhook',
+  ...createStripeWebhookMiddleware('whsec_...', stripe),
+  (req, res) => {
+    const event = req.body as Stripe.Event;
+
     switch (event.type) {
       case 'payment_intent.succeeded':
-        const paymentIntent = event.data.object;
-        console.log('PaymentIntent was successful!');
+        console.log('PaymentIntent succeeded!');
         break;
-      case 'payment_method.attached':
-        const paymentMethod = event.data.object;
-        console.log('PaymentMethod was attached to a Customer!');
-        break;
-      // ... handle other event types
-      default:
-        console.log(`Unhandled event type ${event.type}`);
     }
-  
-    // Return a response to acknowledge receipt of the event
-    response.json({received: true});
- });
- app.listen(4242, () => console.log('Running on port 4242'));
+
+    res.json({ received: true });
+  }
+);
 ```
 
-## Try it out!
+## API Reference
 
-You can test the package on the `example/` directory
+### `createStripeWebhookMiddleware(endpointSecret, stripe, options?)`
 
-### Clone the project
+Convenience function that creates and returns the middleware array.
 
-``` bash
-$ git clone git@github.com:hideokamoto/express-stripe-webhook-middleware.git
-$ cd express-stripe-webhook-middleware
-$ npm install
+**Parameters:**
+- `endpointSecret` (string): Your Stripe webhook secret (starts with `whsec_`)
+- `stripe` (Stripe): Stripe SDK instance
+- `options` (optional): Configuration options
+  - `logger`: Custom logger function
+  - `onError`: Custom error handler
+
+**Returns:** `RequestHandler[]` - Array of Express middleware
+
+### `StripeWebhookMiddlewareFactory`
+
+Factory class for creating the middleware.
+
+**Constructor:**
+```typescript
+new StripeWebhookMiddlewareFactory(
+  endpointSecret: string,
+  stripe: Stripe,
+  options?: StripeWebhookMiddlewareOptions
+)
 ```
 
-### Step1: Install packages
+**Methods:**
+- `create()`: Returns `RequestHandler[]`
 
-Install libraries.
+## Testing Your Webhooks
 
+### Using Stripe CLI
+
+1. Install [Stripe CLI](https://stripe.com/docs/stripe-cli)
+
+2. Forward webhooks to your local server:
 ```bash
-$ cd example
-$ npm install
+stripe listen --forward-to localhost:4242/webhook
 ```
 
-### Step2: Put your Stripe API keys
-
-Open `.env` file, and replace api key from dummy to your account one.
-
+3. Trigger test events:
 ```bash
-$ vim .env
-STRIPE_SECRET_API_KEY=sk_test_XXXXXXX
-STRIPE_WEBHOOK_SECRET_KEY=whsec_XXXXXXX
+stripe trigger payment_intent.succeeded
 ```
 
-### Step3: Start the express server
+### Example Test Server
 
-You can start the demo server by this command.
+```typescript
+import Stripe from 'stripe';
+import express from 'express';
+import { createStripeWebhookMiddleware } from 'express-stripe-webhook-middleware';
 
-```bash
-$ node index.js
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const app = express();
+
+app.post(
+  '/webhook',
+  ...createStripeWebhookMiddleware(process.env.STRIPE_WEBHOOK_SECRET!, stripe),
+  (req, res) => {
+    const event = req.body as Stripe.Event;
+    console.log('✅ Received event:', event.type);
+    res.json({ received: true });
+  }
+);
+
+app.listen(4242, () => {
+  console.log('🚀 Webhook server running on http://localhost:4242');
+});
 ```
 
-### Step4: Listen and forward Stripe Webhook request by using Stripe CLI
+## Requirements
 
-Stripe CLI can forward the Webhook request to your localhost server.
+- Node.js >= 18
+- Express ^4.18.0 || ^5.0.0
+- Stripe SDK ^14.0.0 || newer
 
-```bash
-$ stripe listen --forward-to localhost:4242/webhook
-```
+## Contributing
 
-### Step5: Execute Stripe Webhook event by using Stripe CLI
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-Trigger test webhook event from Stripe CLI.
+## License
 
-```bash
-$ stripe trigger payment_intent.created
-```
+MIT © [Hidetaka Okamoto](https://github.com/hideokamoto)
 
-Then, you can see the request body on the server log.
+## Changelog
 
-```bash
- % node index.js
-start
-=====
-{
-  id: 'evt_1JBeVwDHnG67uihbF0mxej38',
-  object: 'event',
-  api_version: '2020-08-27',
-  created: 1625917112,
-  data: {
-    object: {
-      id: 'pi_1JBeVwDHnG67uihb1LH7ioR2',
-      object: 'payment_intent',
-      amount: 2000,
-      amount_capturable: 0,
-      amount_received: 0,
-      application: null,
-      application_fee_amount: null,
-...
-```
+### v0.2.0
+- 🚀 Migrated from TSDX to Vite
+- 📦 Updated to latest dependencies (Stripe SDK v17+, TypeScript 5.7)
+- ✨ Added `createStripeWebhookMiddleware` helper function
+- 🔧 Added custom error handler support via `onError` option
+- 🎯 Improved type safety with strict TypeScript settings
+- ✅ Enhanced test coverage with Vitest
+- 📝 Comprehensive JSDoc documentation
+- ⚡ Better error handling for missing signatures
+- 🔄 Now exports both ESM and CommonJS formats
+
+### v0.1.0
+- Initial release with TSDX
