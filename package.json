@@ -1,6 +1,6 @@
 {
   "name": "express-stripe-webhook-middleware",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Express middleware for Stripe webhook signature verification",
   "license": "MIT",
   "author": "Hidetaka Okamoto",
