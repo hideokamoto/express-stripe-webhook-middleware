@@ -282,6 +282,18 @@ app.listen(4242, () => {
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+This repository uses [pnpm](https://pnpm.io/) (the version is pinned by `packageManager` in `package.json`):
+
+```bash
+pnpm install
+pnpm run lint
+pnpm run typecheck
+pnpm run build
+pnpm test
+```
+
+Releases are automated: merging to `main` runs semantic-release on CircleCI, which decides the next version from [Conventional Commits](https://www.conventionalcommits.org/) since the last `v*` tag, publishes to npm, and creates the GitHub Release. Do not bump `version` in `package.json` by hand.
+
 ## License
 
 MIT © [Hidetaka Okamoto](https://github.com/hideokamoto)
